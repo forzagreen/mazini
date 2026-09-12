@@ -15,7 +15,7 @@ verified two ways:
 
 - **Against the book.** Every one of the **15,549 printed forms** of the 462 paradigms in
   أنطوان الدحداح, *معجم تصريف الأفعال العربية* — the reference work on the subject, transcribed and
-  published as the [`ar-verbs`](https://github.com/forzagreen/ar-verbs) dataset — is among the forms
+  published as the [`ar-conjugation`](https://github.com/forzagreen/ar-conjugation) dataset — is among the forms
   the engine generates.
 - **Against the original.** For **7,851 inputs** (every root × pattern combination of a 154-root grid,
   plain, passive and assimilated, plus every book verb) the output is **byte-identical** to the Lua
