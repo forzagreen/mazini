@@ -1,0 +1,20 @@
+{
+ "upstream": "https://github.com/forzagreen/ar-wiktionary-modules",
+ "commit": "b92afcb198924d767c2d4f7f4a9b56b3e3404eef",
+ "dirty": true,
+ "generated": "2026-09-12",
+ "golden": {
+  "inputs": 7851,
+  "ok": 7650,
+  "error": 201,
+  "codes": {
+   "reduced_not_applicable": 143,
+   "bad_root": 51,
+   "unsupported_weakness": 6,
+   "unknown_wazn": 1
+  }
+ },
+ "hamza": 54202,
+ "loose": 51041,
+ "book_files": 463
+}
