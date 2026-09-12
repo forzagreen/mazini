@@ -58,7 +58,7 @@ def detect_indicator_spec(base: Base) -> None:
             )
         weakness = weakness_from_radicals(vform, ir1, ir2, ir3, ir4, vs.past, vs.nonpast)
         if vform == "VIII":
-            vs.form_viii_assim = form_viii_join_ta(ir1, base.reduced)
+            vs.form_viii_assim = form_viii_join_ta(ir1, base.reduced, ir1 + ir2 + ir3)
 
         if vform == "I" and not is_passive_only(base.passive) and (vs.past == "-" or vs.nonpast == "-"):
             raise MaziniError(

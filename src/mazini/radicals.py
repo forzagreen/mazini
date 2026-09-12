@@ -42,7 +42,7 @@ def form_i_w_assimilated(
 
 
 #: Geminate form-I roots whose degemination vowel follows the مضارع by إتباع (هَمُمْتَ).
-_GEMINATE_ITBAA_ROOTS = frozenset({"همم", "عشش", "فكك"})
+_GEMINATE_ITBAA_ROOTS = frozenset({"همم", "عشش", "فكك", "شرر", "لبب"})
 
 
 def geminate_degemination_vowel(rad1: str, rad2: str, rad3: str, past_vowel: AbForm, nonpast_vowel: AbForm) -> AbForm:
@@ -59,11 +59,14 @@ def final_weak_uu_retains_rad3(past_ending_vowel: str, nonpast_ending_vowel: str
 #: Roots the sources conjugate SOUND in a form whose rule would not, keyed form:root (ar-verb.lua 2768).
 _SOUND_ROOTS = frozenset({
     "IV:خيل", "IV:غيل", "IV:حيج", "IV:حين", "IV:خيف", "IV:ريف", "IV:زين",
-    "IV:ثوب", "IV:نيء", "VII:سيء", "VIII:عول", "X:جوب", "III:علل", "III:فرر", "VI:عثث", "VI:غضض",
+    "IV:ثوب", "IV:نيء", "VII:سيء", "VIII:عول", "VIII:زوج", "X:جوب", "III:علل", "III:فرر", "VI:عثث", "VI:غضض",
 })  # fmt: skip
 
-#: Hollow roots whose form-I فَعُلَ keeps the middle radical sound (هَيُؤَ).
-_SOUND_FORM_I_UU_ROOTS = frozenset({"هي" + HAMZA})
+#: Hollow roots that keep the middle radical sound in one form-I vowel pattern, keyed root:vowels (هَيُؤَ, أَوِبَ).
+_SOUND_FORM_I_ROOTS = frozenset({"هي" + HAMZA + ":uu", HAMZA + "وب:ia"})
+
+#: Wāw-initial roots whose form VIII keeps the wāw instead of assimilating it (اِيتَشَى / يَوْتَشِي).
+_FORM_VIII_UNASSIMILATED_W_ROOTS = frozenset({"وشي"})
 
 
 def vform_supports_final_weak(vform: str) -> bool:
@@ -154,9 +157,8 @@ def weakness_from_radicals(
                 form == "I"
                 and past_vowel is not None
                 and nonpast_vowel is not None
-                and req(past_vowel, U)
-                and req(nonpast_vowel, U)
-                and (rad1 + rad2 + rad3) in _SOUND_FORM_I_UU_ROOTS
+                and (rad1 + rad2 + rad3 + ":" + _vowel_letter(past_vowel) + _vowel_letter(nonpast_vowel))
+                in _SOUND_FORM_I_ROOTS
             ):
                 return "sound"
             return "hollow"
@@ -166,8 +168,10 @@ def weakness_from_radicals(
     return "final-weak" if is_waw_ya(rad4) else "sound"
 
 
-def form_viii_join_ta(rad: str, reduced: bool) -> str:
+def form_viii_join_ta(rad: str, reduced: bool, root: str | None = None) -> str:
     """form_viii_join_ta: the infixed tāʾ joined to the first radical of a form VIII verb."""
+    if rad == W and root is not None and root in _FORM_VIII_UNASSIMILATED_W_ROOTS:
+        return W + SK + "ت"
     if rad in (W, Y, "ت"):
         return "تّ"
     if rad == HAMZA and reduced:

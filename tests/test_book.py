@@ -1,4 +1,4 @@
-"""The book: every printed cell of the 462 paradigms, checked as upstream's tests/run.lua checks the module."""
+"""The book: every printed cell of the 495 paradigms, checked as upstream's tests/run.lua checks the module."""
 
 import csv
 import os
@@ -14,7 +14,7 @@ def test_every_printed_cell_is_generated():
     book = os.path.join(FIXTURES, "book")
     with open(os.path.join(book, "index.csv"), encoding="utf-8") as f:
         index = list(csv.DictReader(f))
-    assert len(index) == 462
+    assert len(index) == 495
     passed = 0
     failed: list[str] = []
     per_column: dict[str, int] = {}
@@ -40,4 +40,4 @@ def test_every_printed_cell_is_generated():
                     )
     print("book: %d passed, %d failed; per column %s" % (passed, len(failed), per_column))
     assert failed[:20] == []
-    assert passed == 15549
+    assert passed == 16593
