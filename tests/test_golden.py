@@ -1,9 +1,12 @@
 """Exact equivalence with the Lua module: every slot, variant, footnote and metadata field, for every
 input in tests/fixtures/golden.jsonl.gz (generated upstream by tools/port_fixtures.py)."""
 
+import json
+
+import pytest
 from conftest import fixture_records
 
-from mazini import conjugate
+from mazini import MaziniError, conjugate
 
 UNDIA = {"َ": "a", "ِ": "i", "ُ": "u", "-": None}
 
@@ -88,6 +91,48 @@ def _meta_of_golden(m):
             "form_viii_assim": cv["form_viii_assim"],
         },
     }
+
+
+@pytest.mark.parametrize("group", sorted(GROUPS))
+def test_golden_group(group):
+    problems = []
+    for rec in GROUPS[group]:
+        if "error" in rec:
+            try:
+                _run(rec)
+            except MaziniError as e:
+                if e.code != rec["error"]["code"]:
+                    problems.append("%s: expected error %s, got %s (%s)" % (rec["id"], rec["error"]["code"], e.code, e))
+            except Exception as e:  # noqa: BLE001
+                problems.append("%s: expected MaziniError %s, got %r" % (rec["id"], rec["error"]["code"], e))
+            else:
+                problems.append("%s: expected error %s, got no error" % (rec["id"], rec["error"]["code"]))
+            continue
+        try:
+            c = _run(rec)
+        except Exception as e:  # noqa: BLE001
+            problems.append("%s: raised %r" % (rec["id"], e))
+            continue
+        got = _slots_of(c)
+        want = rec["slots"]
+        got_map = {s: json.dumps(v, ensure_ascii=False) for s, v in got}
+        want_map = {s: json.dumps(v, ensure_ascii=False) for s, v in want}
+        for slot, w in want_map.items():
+            g = got_map.get(slot)
+            if g != w:
+                problems.append("%s %s: expected %s got %s" % (rec["id"], slot, w, g or "(absent)"))
+        for slot in got_map:
+            if slot not in want_map:
+                problems.append("%s %s: unexpected %s" % (rec["id"], slot, got_map[slot]))
+        if [s for s, _ in got] != [s for s, _ in want]:
+            problems.append("%s: slot order differs" % rec["id"])
+        gm, wm = _meta_of(c), _meta_of_golden(rec["meta"])
+        for key in wm:
+            if json.dumps(gm[key], ensure_ascii=False, sort_keys=True) != json.dumps(
+                wm[key], ensure_ascii=False, sort_keys=True
+            ):
+                problems.append("%s meta.%s: expected %s got %s" % (rec["id"], key, wm[key], gm[key]))
+    assert problems[:12] == [], "%d problems in %s" % (len(problems), group)
 
 
 def test_every_variant_is_covered():
