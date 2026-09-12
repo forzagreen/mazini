@@ -105,3 +105,7 @@ python3 tools/gen_golden.py   # regenerate tests/fixtures/ from ../ar-wiktionary
 made), `loose.jsonl.gz` (the normaliser's parity set), `book/` (the 462 paradigms as CSV) and
 `MANIFEST.json` (the upstream commit). The source is ported file for file from `mazini-js`, which was
 ported from the Lua; the three keep the same function names and the Lua line references.
+
+## Licence
+
+© 2026 Wael Tellat. Released under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/); see [LICENSE](LICENSE).

@@ -9,6 +9,8 @@ description = "Arabic verb conjugator — every form of any verb from its root a
 readme = "README.md"
 requires-python = ">=3.11"
 authors = [{ name = "Wael Tellat", email = "wael.tellat@gmail.com" }]
+license = "CC-BY-4.0"
+license-files = ["LICENSE"]
 keywords = ["arabic", "conjugation", "conjugator", "verb", "morphology", "nlp", "arabic-nlp", "sarf"]
 classifiers = [
     "Development Status :: 3 - Alpha",
