@@ -1,4 +1,4 @@
-"""Command line: `mazini كتب "فعَل يفعُل" [--passive] [--reduced] [--json]`."""
+"""Command line: `mazini كتب "فعَل يفعُل" [--passive] [--reduced] [--json]`; `mazini كتب` lists the root's attested verbs."""
 
 from __future__ import annotations
 
@@ -9,18 +9,22 @@ from dataclasses import asdict
 
 from . import WAZNS, MaziniError, conjugate
 from .chars import IMP_PERSON_NUMBERS, PERSON_NUMBERS
+from .lexicon import lexicon_entries, transitivity
 
 _PERSON_AR = {
     "3ms": "هو", "3md": "هما", "3mp": "هم", "3fs": "هي", "3fd": "هما (مؤ)", "3fp": "هنّ",
     "2ms": "أنتَ", "2d": "أنتما", "2mp": "أنتم", "2fs": "أنتِ", "2fp": "أنتنّ", "1s": "أنا", "1p": "نحن",
 }  # fmt: skip
 _ORDER = ["3ms", "3md", "3mp", "3fs", "3fd", "3fp", "2ms", "2d", "2mp", "2fs", "2fp", "1s", "1p"]
+_TRANS_AR = {"intransitive": "لازم", "transitive": "متعدٍّ", "both": "لازم ومتعدٍّ"}
 
 
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(prog="mazini", description="Conjugate an Arabic verb from its root and pattern.")
     ap.add_argument("root", nargs="?", help="three or four radicals, e.g. كتب or ك_ت_ب")
-    ap.add_argument("wazn", nargs="?", help="pattern name (فعَل يفعُل, استفعل) or form code (I/a~u, X)")
+    ap.add_argument(
+        "wazn", nargs="?", help="pattern name (فعَل يفعُل, استفعل) or form code (I/a~u, X); omit to list the root's attested verbs"
+    )
     ap.add_argument("--passive", action="store_true", help="|مبني للمجهول=: full personal passive")
     ap.add_argument("--reduced", action="store_true", help="|مدغم=: assimilated affix")
     ap.add_argument("--json", action="store_true", help="print the full result as JSON")
@@ -31,10 +35,13 @@ def main(argv: list[str] | None = None) -> int:
         for w in WAZNS:
             print("%-12s %-7s %s" % (w.wazn, w.form_code, w.basic_deriv))
         return 0
-    if not args.root or not args.wazn:
-        ap.error("root and wazn are required")
+    if not args.root:
+        ap.error("a root is required")
     try:
+        if not args.wazn:
+            return _list_attested(args.root, args.json)
         c = conjugate(args.root, args.wazn, passive=args.passive, reduced=args.reduced)
+        attested = transitivity(args.root, args.wazn)
     except MaziniError as e:
         print("error (%s): %s" % (e.code, e), file=sys.stderr)
         return 1
@@ -50,6 +57,7 @@ def main(argv: list[str] | None = None) -> int:
 
     print("%s — %s — %s" % (cell("past_3ms"), c.root_display, c.verb_type))
     print("المصدر: %s   اسم الفاعل: %s   اسم المفعول: %s" % (cell("vn"), cell("ap"), cell("pp")))
+    print("معجم الأفعال: %s" % (_TRANS_AR[attested] if attested else "غير وارد"))
     print()
     cols = [("past_", "الماضي"), ("ind_", "المضارع"), ("sub_", "المنصوب"), ("juss_", "المجزوم"), ("imp_", "الأمر")]
     print("%-10s" % "" + "".join("%-22s" % label for _, label in cols))
@@ -70,6 +78,20 @@ def main(argv: list[str] | None = None) -> int:
         for p in _ORDER:
             print("%-10s" % _PERSON_AR[p] + "".join("%-22s" % cell(prefix + p) for prefix, _ in pcols))
     assert PERSON_NUMBERS
+    return 0
+
+
+def _list_attested(root: str, as_json: bool) -> int:
+    """`mazini كتب`: the root's verbs in the lexicon, one per line (or as JSON), in pattern order."""
+    entries = lexicon_entries(root)
+    if as_json:
+        print(json.dumps([asdict(e) for e in entries], ensure_ascii=False, indent=1))
+        return 0
+    if not entries:
+        print("no attested verb for the root %s in the lexicon; any pattern can still be conjugated" % root, file=sys.stderr)
+        return 1
+    for e in entries:
+        print("%-12s %-7s %s" % (e.wazn, e.form_code, _TRANS_AR[e.transitivity]))
     return 0
 
 
