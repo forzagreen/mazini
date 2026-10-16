@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "mazini"
-version = "0.1.0"
+version = "0.2.0"
 description = "Arabic verb conjugator — every form of any verb from its root and pattern; a pure-Python port of Wiktionary's Module:ar-verb, verified against 15,549 printed forms"
 readme = "README.md"
 requires-python = ">=3.11"
