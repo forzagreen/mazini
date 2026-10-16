@@ -4,15 +4,16 @@
     python3 tools/gen_lexicon.py --source /path/to/arabic-morphology   # or ARABIC_MORPHOLOGY=...
 
 The dataset (https://github.com/m-bakni/arabic-morphology, CC BY 4.0) is four tables of roots × patterns,
-each cell marked ل (لازم, intransitive), م (متعدٍّ, transitive) or ك (both). This script folds them into one
-compact string per root length and writes it as a source file, Python or TypeScript by the extension of
---out (default: the data module of the repository the script lives in). No dependencies.
+a cell marked (ل, م or ك: the verb's transitivity, which is not kept) where the verb exists. This script folds
+them into one compact string per root length and writes it as a source file, Python or TypeScript by the
+extension of --out (default: the data module of the repository the script lives in). No dependencies.
 
-Encoding (also described in the generated file): one root per line. The first 3 (TRI) or 4 (QUAD)
-characters are the radicals in Buckwalter transliteration (ROOT_CODES[i] stands for ROOT_LETTERS[i]); each
-following character is one attested pattern, SYMBOLS[3 * i + t] where i indexes TRI_WAZNS or QUAD_WAZNS
-and t is 0 for لازم, 1 for متعدٍّ, 2 for both. Roots are in Arabic alphabetical order, patterns in table
-order. The dataset writes hamza as أ in every seat; roots are stored with ء, as mazini normalises them.
+Encoding (also described in the generated file): fixed-width records, newlines ignored. A record is the
+radicals in Buckwalter transliteration (ROOT_CODES[i] stands for ROOT_LETTERS[i]) followed by a bitmask of
+the attested patterns, bit i for TRI_WAZNS[i] or QUAD_WAZNS[i], written in base 64 (SYMBOLS), most
+significant digit first: 3 letters + 3 digits for a triliteral root, 4 letters + 1 digit for a quadriliteral.
+Roots are in Arabic alphabetical order. The dataset writes hamza as أ in every seat; roots are stored with
+ء, as mazini normalises them.
 """
 
 from __future__ import annotations
@@ -30,8 +31,9 @@ SOURCE_URL = "https://github.com/m-bakni/arabic-morphology"
 
 ROOT_LETTERS = "ءبتثجحخدذرزسشصضطظعغفقكلمنهوي"
 ROOT_CODES = "'btvjHxd*rzs$SDTZEgfqklmnhwy"
-SYMBOLS = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
-TRANS = {"ل": 0, "م": 1, "ك": 2}
+SYMBOLS = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz+/"
+MARKS = {"ل", "م", "ك"}  # لازم, متعدٍّ, both: the verb exists either way
+RECORDS_PER_LINE = 16
 HAMZA_SEATS = {"أ": "ء", "إ": "ء", "آ": "ء", "ؤ": "ء", "ئ": "ء", "ى": "ي"}
 
 # The 22 patterns, in the order mazini's WAZNS lists them (src/mazini/wazn.py, src/wazn.ts).
@@ -66,9 +68,9 @@ def normalize_root(raw: str, n: int) -> str:
     return root
 
 
-def read(source: str) -> dict[str, dict[str, int]]:
-    """root → {wazn → transitivity code}, from the four tables."""
-    verbs: dict[str, dict[str, int]] = {}
+def read(source: str) -> dict[str, set[str]]:
+    """root → its attested patterns, from the four tables."""
+    verbs: dict[str, set[str]] = {}
     for name, n, known in TABLES:
         path = os.path.join(source, "data", "csv", name)
         with open(path, encoding="utf-8-sig", newline="") as f:
@@ -83,26 +85,29 @@ def read(source: str) -> dict[str, dict[str, int]]:
             root = normalize_root(row[0].strip(), n)
             if "".join(row[1 : 1 + n]) != row[0].strip():
                 sys.exit("radical columns disagree with the root in %r" % row)
-            entry = verbs.setdefault(root, {})
+            entry = verbs.setdefault(root, set())
             for wazn, mark in zip(patterns, row[1 + n :], strict=False):
                 mark = mark.strip()
                 if not mark:
                     continue
-                if mark not in TRANS:
+                if mark not in MARKS:
                     sys.exit("unknown mark %r for %s %s" % (mark, root, wazn))
                 if wazn in entry:
                     sys.exit("%s %s is listed twice" % (root, wazn))
-                entry[wazn] = TRANS[mark]
+                entry.add(wazn)
     return verbs
 
 
-def encode(verbs: dict[str, dict[str, int]], n: int, wazns: list[str]) -> str:
+def encode(verbs: dict[str, set[str]], n: int, wazns: list[str]) -> str:
+    """Fixed-width records (radicals + base-64 bitmask), RECORDS_PER_LINE to a line for the sake of diffs."""
     order = {ch: i for i, ch in enumerate(ROOT_LETTERS)}
-    lines = []
+    digits = (len(wazns) + 5) // 6
+    records = []
     for root in sorted((r for r in verbs if len(r) == n), key=lambda r: [order[ch] for ch in r]):
-        codes = "".join(ROOT_CODES[order[ch]] for ch in root)
-        syms = "".join(SYMBOLS[3 * wazns.index(w) + t] for w, t in sorted(verbs[root].items(), key=lambda kv: wazns.index(kv[0])))
-        lines.append(codes + syms)
+        mask = sum(1 << wazns.index(w) for w in verbs[root])
+        bits = "".join(SYMBOLS[(mask >> (6 * d)) & 63] for d in reversed(range(digits)))
+        records.append("".join(ROOT_CODES[order[ch]] for ch in root) + bits)
+    lines = ["".join(records[i : i + RECORDS_PER_LINE]) for i in range(0, len(records), RECORDS_PER_LINE)]
     return "\n".join(lines) + "\n"
 
 
@@ -120,10 +125,11 @@ def render(lang: str, meta: dict[str, object], tri: str, quad: str) -> str:
         "Source: %(url)s @ %(commit)s (%(date)s), the four root × pattern tables of جداول إحصاء الأفعال العربية\n"
         "(مروان البواب ويحيى مير علم), CC BY 4.0. %(verbs)d verbs over %(roots)d roots.\n"
         "\n"
-        "Format: one root per line. The first 3 (TRI) or 4 (QUAD) characters are the radicals in Buckwalter\n"
-        "transliteration (ROOT_CODES[i] stands for ROOT_LETTERS[i]); each following character is one attested\n"
-        "pattern, SYMBOLS[3 * i + t], where i indexes TRI_WAZNS or QUAD_WAZNS and t is 0 for لازم, 1 for متعدٍّ,\n"
-        "2 for both. Roots are in Arabic alphabetical order, patterns in table order, hamza always ء."
+        "Format: fixed-width records, newlines ignored. A record is the radicals in Buckwalter transliteration\n"
+        "(ROOT_CODES[i] stands for ROOT_LETTERS[i]) followed by a bitmask of the attested patterns, bit i for\n"
+        "TRI_WAZNS[i] or QUAD_WAZNS[i], in base 64 (SYMBOLS) most significant digit first: 3 letters + 3 digits\n"
+        "per triliteral root (TRI), 4 letters + 1 digit per quadriliteral (QUAD). Roots are in Arabic\n"
+        "alphabetical order, hamza always ء."
     ) % meta
     if lang == "py":
         q = lambda s: '"%s"' % s  # noqa: E731
@@ -137,16 +143,16 @@ def render(lang: str, meta: dict[str, object], tri: str, quad: str) -> str:
             "ROOT_LETTERS = %s\n"
             "ROOT_CODES = %s\n"
             "SYMBOLS = %s\n"
-            "TRI_WAZNS = (%s)\n"
-            "QUAD_WAZNS = (%s)\n"
+            "TRI_WAZNS = (\n%s)\n"
+            "QUAD_WAZNS = (\n%s)\n"
             'TRI = """\\\n%s"""\n'
             'QUAD = """\\\n%s"""\n'
         ) % (
             doc,
             q(meta["url"]), q(meta["commit"]), q(meta["date"]), meta["roots"], meta["verbs"],
             q(ROOT_LETTERS), q(ROOT_CODES), q(SYMBOLS),
-            ", ".join(q(w) for w in TRI_WAZNS) + ",",
-            ", ".join(q(w) for w in QUAD_WAZNS) + ",",
+            "".join("    %s,\n" % q(w) for w in TRI_WAZNS),
+            "".join("    %s,\n" % q(w) for w in QUAD_WAZNS),
             tri, quad,
         )  # fmt: skip
     return (
@@ -206,6 +212,8 @@ def main() -> None:
         "date": git(source, "log", "-1", "--format=%cs") or "unknown",
         "roots": len(verbs),
         "verbs": sum(len(v) for v in verbs.values()),
+        "tri": sum(len(r) == 3 for r in verbs),
+        "quad": sum(len(r) == 4 for r in verbs),
     }
     tri = encode(verbs, 3, TRI_WAZNS)
     quad = encode(verbs, 4, QUAD_WAZNS)
@@ -216,7 +224,15 @@ def main() -> None:
         f.write(text)
     print(
         "%s: %d roots (%d triliteral, %d quadriliteral), %d verbs, %d bytes of tables, source %s"
-        % (os.path.relpath(out, REPO), meta["roots"], tri.count("\n"), quad.count("\n"), meta["verbs"], len(tri) + len(quad), meta["commit"][:12])
+        % (
+            os.path.relpath(out, REPO),
+            meta["roots"],
+            meta["tri"],
+            meta["quad"],
+            meta["verbs"],
+            len(tri) + len(quad),
+            meta["commit"][:12],
+        )
     )
 
 

@@ -3,8 +3,7 @@
 import pytest
 
 from mazini import WAZNS, MaziniError, conjugate, normalize_root
-from mazini.lexicon import LEXICON_INFO, is_attested, lexicon_entries, lexicon_roots, transitivity
-from mazini.wazn import WAZN_BY_NAME
+from mazini.lexicon import LEXICON_INFO, attested_wazns, is_attested, lexicon_roots
 
 ALPHABET = "ءبتثجحخدذرزسشصضطظعغفقكلمنهوي"
 
@@ -12,7 +11,7 @@ ALPHABET = "ءبتثجحخدذرزسشصضطظعغفقكلمنهوي"
 def test_counts_match_the_generated_header():
     roots = lexicon_roots()
     assert len(roots) == LEXICON_INFO.roots == 7626
-    assert sum(len(lexicon_entries(r)) for r in roots) == LEXICON_INFO.verbs == 24188
+    assert sum(len(attested_wazns(r)) for r in roots) == LEXICON_INFO.verbs == 24188
     assert LEXICON_INFO.source_url == "https://github.com/m-bakni/arabic-morphology"
     assert len(LEXICON_INFO.source_commit) == 40
 
@@ -21,47 +20,36 @@ def test_roots_are_normalised_and_sorted():
     roots = lexicon_roots()
     keys = [(len(r), [ALPHABET.index(ch) for ch in r]) for r in roots]
     assert keys == sorted(keys)
+    order = [w.wazn for w in WAZNS]
     for r in roots:
         assert len(r) in (3, 4) and normalize_root(r) == list(r), r
-        for e in lexicon_entries(r):
-            assert e.root == r and WAZN_BY_NAME[e.wazn].form_code == e.form_code
-            assert e.transitivity in ("intransitive", "transitive", "both")
-            assert (len(r) == 4) == e.form_code.endswith("q")
-    assert {e.wazn for r in roots for e in lexicon_entries(r)} == {w.wazn for w in WAZNS}
+        wazns = attested_wazns(r)
+        assert wazns and [order.index(w) for w in wazns] == sorted(order.index(w) for w in wazns), r
+        for w in wazns:
+            assert (len(r) == 4) == (w in ("فعلل", "تفعلل", "افعنلل", "افعللّ")), (r, w)
+    assert {w for r in roots for w in attested_wazns(r)} == set(order)
 
 
 def test_entries_follow_the_tables():
-    # Rows of the four CSV tables, read against the marks ل / م / ك.
-    assert [(e.wazn, e.transitivity) for e in lexicon_entries("أبأ")] == [("فعَل يفعَل", "transitive")]
-    assert [(e.form_code, e.transitivity) for e in lexicon_entries("أبب")] == [
-        ("I/a~u", "both"),
-        ("I/a~i", "both"),
-        ("II", "intransitive"),
-        ("V", "intransitive"),
-        ("VIII", "intransitive"),
-    ]
-    assert [e.wazn for e in lexicon_entries("كتب")] == [
+    # Rows of the four CSV tables.
+    assert attested_wazns("أبأ") == ["فعَل يفعَل"]
+    assert attested_wazns("أبب") == ["فعَل يفعُل", "فعَل يفعِل", "فعّل", "تفعّل", "افتعل"]
+    assert attested_wazns("كتب") == [
         "فعَل يفعُل", "فعَل يفعِل", "فعّل", "فاعل", "أفعل", "تفعّل", "تفاعل", "افتعل", "استفعل",
     ]  # fmt: skip
-    assert [(e.form_code, e.transitivity) for e in lexicon_entries("بأبأ")] == [("Iq", "both"), ("IIq", "intransitive")]
-    assert [(e.form_code, e.transitivity) for e in lexicon_entries("قشعر")] == [
-        ("Iq", "transitive"),
-        ("IIq", "intransitive"),
-        ("IVq", "intransitive"),
-    ]
-    assert lexicon_entries("حرجم")[1].form_code == "IIIq"
+    assert attested_wazns("أتمت") == ["فعلل"]
+    assert attested_wazns("بأبأ") == ["فعلل", "تفعلل"]
+    assert attested_wazns("قشعر") == ["فعلل", "تفعلل", "افعللّ"]
+    assert attested_wazns("حرجم") == ["فعلل", "افعنلل"]
+    assert attested_wazns("يهيه") == ["فعلل"]
 
 
 def test_lookups_take_every_root_and_pattern_spelling():
-    assert transitivity("كتب", "استفعل") == "transitive"
-    assert transitivity("ك ت ب", "X") == "transitive"
-    assert transitivity("ك_ت_ب", "I/a~u") == "both"
-    assert transitivity("أخذ", "فاعل") == transitivity("ءخذ", "III") == "transitive"
-    assert transitivity("أخذ", "افتعل") == "both"
-    assert transitivity("رمى", "فعَل يفعِل") == transitivity("رمي", "I/a~i") == "both"
-    assert is_attested("كتب", "تفاعل") and not is_attested("كتب", "افعوعل") and not is_attested("كتب", "فعُل يفعُل")
-    assert transitivity("كتب", "افعوعل") is None
-    assert lexicon_entries("ضضض") == [] and not is_attested("ضضض", "فعَل يفعُل")
+    assert is_attested("كتب", "استفعل") and is_attested("ك ت ب", "X") and is_attested("ك_ت_ب", "I/a~u")
+    assert is_attested("أخذ", "افتعل") and is_attested("ءخذ", "VIII")
+    assert is_attested("رمى", "فعَل يفعِل") and is_attested("رمي", "I/a~i")
+    assert not is_attested("كتب", "افعوعل") and not is_attested("كتب", "فعُل يفعُل") and not is_attested("كتب", "IVq")
+    assert attested_wazns("ضضض") == [] and not is_attested("ضضض", "فعَل يفعُل")
 
 
 @pytest.mark.parametrize("root,wazn,code", [("قال", "فعَل يفعُل", "bad_root"), ("كتب", "فعل", "unknown_wazn")])
@@ -71,11 +59,11 @@ def test_bad_input_raises_like_conjugate(root, wazn, code):
     assert e.value.code == code
     if code == "bad_root":
         with pytest.raises(MaziniError):
-            lexicon_entries(root)
+            attested_wazns(root)
 
 
 def test_every_attested_verb_conjugates():
-    entries = [e for r in lexicon_roots() for e in lexicon_entries(r)]
-    for e in entries[::9]:
-        c = conjugate(e.root, e.wazn)
-        assert c.lemma and c.wazn == e.wazn, (e.root, e.wazn)
+    verbs = [(r, w) for r in lexicon_roots() for w in attested_wazns(r)]
+    for root, wazn in verbs[::9]:
+        c = conjugate(root, wazn)
+        assert c.lemma and c.wazn == wazn, (root, wazn)

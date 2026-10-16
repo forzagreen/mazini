@@ -88,22 +88,21 @@ mazini --list-wazn
 The engine conjugates any root on any pattern, and most of those combinations are not words. The
 `mazini.lexicon` module says which are, from the **24,188 verbs over 7,626 roots** of
 [جداول إحصاء الأفعال العربية](https://github.com/m-bakni/arabic-morphology) (Marwan al-Bawwab and Yahya Mir
-Alam, CC BY 4.0), each marked لازم (intransitive), متعدٍّ (transitive) or both:
+Alam, CC BY 4.0):
 
 ```python
-from mazini.lexicon import LEXICON_INFO, is_attested, lexicon_entries, lexicon_roots, transitivity
+from mazini.lexicon import LEXICON_INFO, attested_wazns, is_attested, lexicon_roots
 
 is_attested("كتب", "فعَل يفعُل")  # True
 is_attested("كتب", "افعوعل")  # False
-transitivity("كتب", "استفعل")  # "transitive"
-[e.wazn for e in lexicon_entries("كتب")]  # ['فعَل يفعُل', 'فعَل يفعِل', 'فعّل', 'فاعل', 'أفعل', 'تفعّل', 'تفاعل', 'افتعل', 'استفعل']
+attested_wazns("كتب")  # ['فعَل يفعُل', 'فعَل يفعِل', 'فعّل', 'فاعل', 'أفعل', 'تفعّل', 'تفاعل', 'افتعل', 'استفعل']
 len(lexicon_roots())  # 7626
 LEXICON_INFO  # source_url, source_commit, source_date, roots, verbs
 ```
 
-Roots and patterns are written as for `conjugate`. The data is a 57 KB string decoded on first use (about
-50 ms); nothing else in the package imports it, and `conjugate` is never restricted by it: no list of a
-living language is complete, so an absence means "not listed", not "not a verb".
+Roots and patterns are written as for `conjugate`. The data is a 44 KB string decoded on first use (a few
+milliseconds); nothing else in the package imports it, and `conjugate` is never restricted by it: no list of
+a living language is complete, so an absence means "not listed", not "not a verb".
 
 ## What it does not do (yet)
 
