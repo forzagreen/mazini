@@ -20,4 +20,5 @@ jobs:
       - name: Build
         run: uv build
       - name: Publish
-        run: uv publish
+        # Skip files already on PyPI, e.g. a release created after a manual workflow_dispatch publish
+        run: uv publish --check-url https://pypi.org/simple/
