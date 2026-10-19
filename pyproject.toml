@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "mazini"
 version = "0.2.1"
-description = "Arabic verb conjugator — every form of any verb from its root and pattern; a pure-Python port of Wiktionary's Module:ar-verb, verified against 15,549 printed forms"
+description = "Arabic verb conjugator — every form of any verb from its root and pattern; a pure-Python port of Wiktionary's Module:ar-verb, verified against 16,593 printed forms"
 readme = "README.md"
 requires-python = ">=3.11"
 authors = [{ name = "Wael Tellat", email = "wael.tellat@gmail.com" }]
