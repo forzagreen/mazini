@@ -30,7 +30,7 @@ __all__ = [
     "loose", "norm", "normalize_root",
 ]  # fmt: skip
 
-__version__ = "0.2.0"
+__version__ = "0.2.1"
 
 
 @dataclass(frozen=True, slots=True)
