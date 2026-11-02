@@ -7,6 +7,7 @@ Port of ar-verb.lua 681-817 and of the fields parse_indicator_spec/detect_indica
 from __future__ import annotations
 
 from dataclasses import dataclass, field, replace
+from typing import Literal
 
 from .forms import (
     AbForm,
@@ -21,6 +22,9 @@ from .forms import (
 )
 
 PassiveType = str  # "pass" | "ipass" | "nopass" | "onlypass" | "onlypass-impers"
+#: The passive types a caller may ask for (conjugate's `passive`).
+PassiveOption = Literal["pass", "ipass", "nopass"]
+PASSIVE_OPTIONS: tuple[PassiveOption, ...] = ("pass", "ipass", "nopass")
 Weakness = str  # "sound" | "assimilated" | "final-weak" | "assimilated+final-weak" | "hollow" | "geminate"
 
 
@@ -73,13 +77,18 @@ class Base:
 
 
 def new_base(
-    lemma: str, verb_form: str, conj_vowels: list[VowelSpec], *, passive: bool = False, reduced: bool = False
+    lemma: str,
+    verb_form: str,
+    conj_vowels: list[VowelSpec],
+    *,
+    passive: bool | PassiveOption = False,
+    reduced: bool = False,
 ) -> Base:
     return Base(
         lemma=lemma,
         verb_form=verb_form,
         conj_vowels=conj_vowels,
-        passive="pass" if passive else None,
+        passive="pass" if passive is True else passive or None,
         reduced=bool(reduced),
         quadlit=verb_form.endswith("q"),
     )

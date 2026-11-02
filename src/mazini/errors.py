@@ -5,7 +5,13 @@ from __future__ import annotations
 from typing import Literal, NoReturn
 
 MaziniErrorCode = Literal[
-    "bad_root", "unknown_wazn", "reduced_not_applicable", "unsupported_weakness", "invalid_radicals", "internal"
+    "bad_root",
+    "unknown_wazn",
+    "reduced_not_applicable",
+    "bad_option",
+    "unsupported_weakness",
+    "invalid_radicals",
+    "internal",
 ]
 
 

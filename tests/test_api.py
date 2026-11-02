@@ -2,7 +2,7 @@
 
 import pytest
 
-from mazini import SLOTS, WAZNS, MaziniError, classify_triliteral_verb, conjugate, normalize_root
+from mazini import SLOTS, WAZNS, MaziniError, classify_triliteral_verb, conjugate, normalize_root, reducible
 
 
 def slot(c, name):
@@ -160,6 +160,42 @@ def test_persons_moods_passive():
         assert slot(r, s) == want, s
     r2 = conjugate("درس", "فعّل")
     assert [slot(r2, "past_pass_3ms"), slot(r2, "ind_pass_3ms")] == ["دُرِّسَ", "يُدَرَّسُ"]
+
+
+def test_a_passive_type_or_a_bad_one():
+    hasuna = conjugate("حسن", "فعُل يفعُل", passive="nopass")
+    assert (hasuna.passive, hasuna.has_passive, hasuna.passive_defaulted) == ("nopass", False, False)
+    assert conjugate("كتب", "فعَل يفعُل", passive="pass").slots == conjugate("كتب", "فعَل يفعُل", passive=True).slots
+    assert conjugate("كتب", "فعَل يفعُل", passive=True).passive_defaulted is False
+    assert conjugate("كتب", "فعَل يفعُل", passive=False).passive_defaulted is True
+    with pytest.raises(MaziniError) as e:
+        conjugate("كتب", "فعَل يفعُل", passive="full")  # type: ignore[arg-type]
+    assert e.value.code == "bad_option"
+
+
+@pytest.mark.parametrize(
+    "root,wazn,ok",
+    [
+        ("سمع", "تفعّل", True),
+        ("ثقل", "تفاعل", True),
+        ("درأ", "تفاعل", True),
+        ("كتب", "تفعّل", False),  # *اِكَّتَّبَ
+        ("علم", "تفاعل", False),  # *اِعَّالَمَ
+        ("محق", "انفعل", True),
+        ("كسر", "انفعل", False),
+        ("أخذ", "افتعل", True),
+        ("أزر", "VIII", True),
+        ("أكل", "افتعل", False),  # اِتَّكَلَ is from وكل
+        ("كتب", "افتعل", False),
+        ("طوع", "استفعل", True),
+        ("قوم", "استفعل", False),
+        ("هبيخ", "افعنلل", True),
+        ("دحرج", "افعنلل", False),
+        ("كتب", "فعَل يفعُل", False),
+    ],
+)
+def test_reducible(root, wazn, ok):
+    assert reducible(root, wazn) is ok
 
 
 def test_irregular_and_reduced():
