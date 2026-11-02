@@ -5,7 +5,7 @@ import os
 
 from conftest import FIXTURES
 
-from mazini import conjugate, loose
+from mazini import conjugate, loose, reducible
 
 COLS = {"past": "past_", "past_pass": "past_pass_", "ind": "ind_", "ind_pass": "ind_pass_", "imp": "imp_"}
 
@@ -19,6 +19,8 @@ def test_every_printed_cell_is_generated():
     failed: list[str] = []
     per_column: dict[str, int] = {}
     for e in index:
+        if e["reduced"]:
+            assert reducible(e["root"], e["wazn"]), e["slug"]
         c = conjugate(e["root"], e["wazn"], passive=bool(e["passive"]), reduced=bool(e["reduced"]))
         with open(os.path.join(book, e["slug"] + ".csv"), encoding="utf-8") as f:
             rows = list(csv.DictReader(f))

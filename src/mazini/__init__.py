@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+from .base import PASSIVE_OPTIONS, PassiveOption
 from .chars import IMP_PERSON_NUMBERS, PERSON_NUMBERS, POTENTIAL_LEMMA_SLOTS, SLOTS, UNSETTABLE_SLOTS
 from .classify import classify_triliteral_verb
 from .conjugations import conjugate_verb
@@ -26,8 +27,8 @@ from .wazn import WAZN_BY_NAME, WAZNS, Vowels, WaznInfo, parse_form_code
 
 __all__ = [
     "IMP_PERSON_NUMBERS", "PERSON_NUMBERS", "POTENTIAL_LEMMA_SLOTS", "SLOTS", "UNSETTABLE_SLOTS", "WAZNS",
-    "Conjugation", "Form", "MaziniError", "Vowels", "WaznInfo", "classify_triliteral_verb", "conjugate", "get_verb_type",
-    "loose", "norm", "normalize_root",
+    "Conjugation", "Form", "MaziniError", "PassiveOption", "Vowels", "WaznInfo", "classify_triliteral_verb", "conjugate",
+    "get_verb_type", "loose", "norm", "normalize_root", "reducible",
 ]  # fmt: skip
 
 __version__ = "0.2.2"
@@ -103,17 +104,21 @@ def conjugate(
     root: str,
     wazn: str,
     *,
-    passive: bool = False,
+    passive: bool | PassiveOption = False,
     reduced: bool = False,
     vowels: Vowels | tuple[str, str] | None = None,
 ) -> Conjugation:
     """Conjugate a verb.
 
     `root` is three or four radicals ("كتب", "ك ت ب" or "ك_ت_ب"); `wazn` is a pattern name ("فعَل يفعُل",
-    "استفعل") or a form code ("I/a~u", "X", "XIV"). `passive` is |مبني للمجهول= (a full personal passive),
-    `reduced` is |مدغم= (the assimilated shape of the affix). `vowels` supplies the form-I stem vowels when
-    `wazn` is the bare "I".
+    "استفعل") or a form code ("I/a~u", "X", "XIV"). `passive` is the passive type, instead of the guess from
+    the pattern: True or "pass" for a full personal passive (|مبني للمجهول=), "ipass" for an impersonal one
+    (third-person masculine singular only), "nopass" for none; `mazini.lexicon.lexicon_passive` gives it for a
+    listed verb from its transitivity. `reduced` is |مدغم= (the assimilated shape of the affix; see
+    `reducible`). `vowels` supplies the form-I stem vowels when `wazn` is the bare "I".
     """
+    if isinstance(passive, str) and passive not in PASSIVE_OPTIONS:
+        raise MaziniError("bad_option", 'passive must be a boolean, "pass", "ipass" or "nopass": ' + passive)
     radicals = normalize_root(root)
     verb_form, vs_vowels, form_code, wazn_name = _resolve(wazn, vowels)
     base = build_base(radicals, verb_form, vs_vowels, passive=passive, reduced=reduced)
@@ -163,6 +168,33 @@ def conjugate(
     )
 
 
-def get_verb_type(root: str, wazn: str, *, passive: bool = False, reduced: bool = False) -> str:
+# The letters the تـ of تفعّل and تفاعل assimilates into (اِسَّمَّعَ, اِدَّارَأَ, اِطَّيَّرَ).
+_TA_ASSIMILATES = "تثدذزسشصضطظ"
+
+
+def reducible(root: str, wazn: str, *, vowels: Vowels | tuple[str, str] | None = None) -> bool:
+    """True if Arabic has the assimilated (مدغم) shape that `reduced=True` asks for.
+
+    تفعّل and تفاعل when ف is one of ت ث د ذ ز س ش ص ض ط ظ (اِسَّمَّعَ, اِثَّاقَلَ), انفعل when ف is م
+    (اِمَّحَقَ), اِتَّخَذَ, اِتَّزَرَ and اِتَّحَدَ (not اِتَّكَلَ from أكل, a different verb, from وكل), اِسْطَاعَ, and
+    افعنلل when ل1 is و or ي (اِهْبَيَّخَ). `conjugate` does not check this (it follows Module:ar-verb, which
+    applies the shape to any root): call it first to avoid forms such as اِكَّتَّبَ. Arguments as for `conjugate`.
+    """
+    r = normalize_root(root)
+    verb_form = _resolve(wazn, vowels)[0]
+    if verb_form in ("V", "VI"):
+        return r[0] in _TA_ASSIMILATES
+    if verb_form == "VII":
+        return r[0] == "م"
+    if verb_form == "VIII":
+        return "".join(r) in ("ءخذ", "ءزر", "ءحد")
+    if verb_form == "X":
+        return "".join(r) == "طوع"
+    if verb_form == "IIIq":
+        return r[2] in ("و", "ي")
+    return False
+
+
+def get_verb_type(root: str, wazn: str, *, passive: bool | PassiveOption = False, reduced: bool = False) -> str:
     """The «فعل ثلاثي مُجرَّد صحيح سالم» line, as Module:ar-verb's get_verb_type gives it."""
     return conjugate(root, wazn, passive=passive, reduced=reduced).verb_type

@@ -55,7 +55,18 @@ conjugate("كتب", "I", vowels=("a", "u"))  # same as "فعَل يفعُل"
 # Two switches, the same ones {{تصريف}} takes on the wiki:
 conjugate("أخذ", "افتعل", reduced=True).slots["past_3ms"][0].form  # "اِتَّخَذَ" (assimilated affix)
 conjugate("علم", "فعِل يفعَل", passive=True)  # a full personal passive for a verb the engine would default to impersonal
+conjugate("جلس", "فعَل يفعِل", passive="ipass")  # impersonal (جُلِسَ عَلَيْهِ only); also "pass", "nopass"
+
+# The assimilated shape exists only for some roots; the engine, like the wiki, applies it to any:
+from mazini import reducible
+
+reducible("سمع", "تفعّل")  # True: اِسَّمَّعَ
+reducible("كتب", "تفعّل")  # False: no *اِكَّتَّبَ
 ```
+
+Without `passive`, the engine guesses the passive from the pattern, and the guess is often wrong for form I
+(it gives جلس a full passive, *جُلِسْتُ). For a listed verb, `lexicon_passive` (below) gives it from the
+verb's transitivity instead.
 
 The result's `slots` maps a slot name (`past_3ms`, `ind_pass_2fp`, `juss_1p`, `imp_2fp`, `ap`, `pp`,
 `vn`, …) to the list of forms for that slot, each `Form(form, footnotes)`; a slot the verb lacks is absent.
@@ -64,7 +75,7 @@ Alongside it: `lemma`, `verb_form`, `wazn`, `radicals`, `weakness`, `passive` (t
 a form-I مصدر or participle the root alone cannot predict), `verb_type` and `classification`.
 
 Roots may be written `كتب`, `ك ت ب` or `ك_ت_ب`; hamza seats fold to `ء` and `ى` to `ي`. Bad input raises
-`MaziniError`, whose `.code` is stable (`bad_root`, `unknown_wazn`, `reduced_not_applicable`, …).
+`MaziniError`, whose `.code` is stable (`bad_root`, `unknown_wazn`, `reduced_not_applicable`, `bad_option`, …).
 
 ```python
 from mazini import WAZNS, SLOTS, classify_triliteral_verb, loose
@@ -86,21 +97,26 @@ mazini --list-wazn
 ## Is it a verb? The attested-verb lexicon
 
 The engine conjugates any root on any pattern, and most of those combinations are not words. The
-`mazini.lexicon` module says which are, from the **24,188 verbs over 7,626 roots** of
+`mazini.lexicon` module says which are, and whether each is transitive, from the **24,188 verbs over 7,626
+roots** of
 [جداول إحصاء الأفعال العربية](https://github.com/m-bakni/arabic-morphology) (Marwan al-Bawwab and Yahya Mir
 Alam, CC BY 4.0):
 
 ```python
-from mazini.lexicon import LEXICON_INFO, attested_wazns, is_attested, lexicon_roots
+from mazini.lexicon import LEXICON_INFO, attested_wazns, is_attested, lexicon_passive, lexicon_roots, transitivity
 
 is_attested("كتب", "فعَل يفعُل")  # True
 is_attested("كتب", "افعوعل")  # False
 attested_wazns("كتب")  # ['فعَل يفعُل', 'فعَل يفعِل', 'فعّل', 'فاعل', 'أفعل', 'تفعّل', 'تفاعل', 'افتعل', 'استفعل']
+transitivity("جلس", "فعَل يفعِل")  # "intransitive" (ل); also "transitive" (م), "both" (ك), None if not listed
+lexicon_passive("جلس", "فعَل يفعِل")  # "ipass": an intransitive verb's passive is impersonal
+lexicon_passive("فهم", "فعِل يفعَل")  # "pass": a transitive one's is full, فُهِمْتُ
+conjugate("جلس", "فعَل يفعِل", passive=lexicon_passive("جلس", "فعَل يفعِل"))
 len(lexicon_roots())  # 7626
 LEXICON_INFO  # source_url, source_commit, source_date, roots, verbs
 ```
 
-Roots and patterns are written as for `conjugate`. The data is a 44 KB string decoded on first use (a few
+Roots and patterns are written as for `conjugate`. The data is 52 KB of strings decoded on first use (a few
 milliseconds); nothing else in the package imports it, and `conjugate` is never restricted by it: no list of
 a living language is complete, so an absence means "not listed", not "not a verb".
 

@@ -6,7 +6,7 @@ detect_indicator_spec (3650-3932).
 
 from __future__ import annotations
 
-from .base import Base, VowelSpec, new_base
+from .base import Base, PassiveOption, VowelSpec, new_base
 from .chars import dia, undia
 from .errors import MaziniError
 from .radicals import (
@@ -23,7 +23,12 @@ from .wazn import Vowels
 
 
 def build_base(
-    radicals: list[str], verb_form: str, vowels: Vowels | None, *, passive: bool = False, reduced: bool = False
+    radicals: list[str],
+    verb_form: str,
+    vowels: Vowels | None,
+    *,
+    passive: bool | PassiveOption = False,
+    reduced: bool = False,
 ) -> Base:
     """build_base: what parse_indicator_spec leaves behind for "ك_ت_ب<I/a~u.pass.reduced>"."""
     lemma = "_".join(radicals)

@@ -3,7 +3,7 @@
 import pytest
 
 from mazini import WAZNS, MaziniError, conjugate, normalize_root
-from mazini.lexicon import LEXICON_INFO, attested_wazns, is_attested, lexicon_roots
+from mazini.lexicon import LEXICON_INFO, attested_wazns, is_attested, lexicon_passive, lexicon_roots, transitivity
 
 ALPHABET = "ءبتثجحخدذرزسشصضطظعغفقكلمنهوي"
 
@@ -62,8 +62,65 @@ def test_bad_input_raises_like_conjugate(root, wazn, code):
             attested_wazns(root)
 
 
-def test_every_attested_verb_conjugates():
+def test_every_attested_verb_conjugates_with_the_passive_its_transitivity_gives():
     verbs = [(r, w) for r in lexicon_roots() for w in attested_wazns(r)]
     for root, wazn in verbs[::9]:
-        c = conjugate(root, wazn)
+        passive = lexicon_passive(root, wazn)
+        assert passive is not None, (root, wazn)
+        c = conjugate(root, wazn, passive=passive)
         assert c.lemma and c.wazn == wazn, (root, wazn)
+        assert c.passive == passive, (root, wazn)
+
+
+def test_transitivity_follows_the_marks():
+    count = {"intransitive": 0, "transitive": 0, "both": 0}
+    for r in lexicon_roots():
+        for w in attested_wazns(r):
+            t = transitivity(r, w)
+            assert t is not None, (r, w)
+            count[t] += 1
+    assert count == {"intransitive": 10713, "transitive": 5883, "both": 7592}
+
+
+@pytest.mark.parametrize(
+    "root,wazn,t",
+    [
+        ("أبأ", "فعَل يفعَل", "transitive"),  # the first row
+        ("أبب", "فعَل يفعُل", "both"),
+        ("جلس", "فعَل يفعِل", "intransitive"),
+        ("جلس", "أفعل", "transitive"),
+        ("خرج", "افعالّ", "intransitive"),
+        ("فهم", "فعِل يفعَل", "both"),
+        ("علم", "تفعّل", "transitive"),
+        ("قشعر", "افعللّ", "intransitive"),
+        ("ك ت ب", "X", "transitive"),
+        ("كتب", "افعوعل", None),
+    ],
+)
+def test_transitivity(root, wazn, t):
+    assert transitivity(root, wazn) == t
+
+
+@pytest.mark.parametrize(
+    "root,wazn,p",
+    [
+        ("ضرب", "فعَل يفعِل", "pass"),  # ك: ضُرِبْتُ
+        ("علم", "تفعّل", "pass"),  # م: تُعُلِّمَ
+        ("جلس", "فعَل يفعِل", "ipass"),  # ل: جُلِسَ عَلَيْهِ, never *جُلِسْتُ
+        ("نوم", "فعِل يفعَل", "ipass"),
+        ("حسن", "فعُل يفعُل", "nopass"),  # ل, and فعُل never takes a passive
+        ("خرج", "افعالّ", "nopass"),
+        ("كتب", "افعوعل", None),
+    ],
+)
+def test_lexicon_passive(root, wazn, p):
+    assert lexicon_passive(root, wazn) == p
+
+
+def test_the_passive_types_conjugate():
+    jalasa = conjugate("جلس", "فعَل يفعِل", passive="ipass")
+    assert jalasa.slots["past_pass_3ms"][0].form == "جُلِسَ"
+    assert "past_pass_1s" not in jalasa.slots
+    assert (jalasa.passive, jalasa.passive_defaulted) == ("ipass", False)
+    assert conjugate("جلس", "فعَل يفعِل").slots["past_pass_1s"][0].form == "جُلِسْتُ"  # the engine's guess
+    assert conjugate("فهم", "فعِل يفعَل", passive="pass").slots["past_pass_1s"][0].form == "فُهِمْتُ"
