@@ -31,7 +31,7 @@ __all__ = [
     "get_verb_type", "loose", "norm", "normalize_root", "reducible",
 ]  # fmt: skip
 
-__version__ = "0.2.2"
+__version__ = "0.3.0"
 
 
 @dataclass(frozen=True, slots=True)
