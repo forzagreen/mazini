@@ -1,0 +1,50 @@
+name: Release
+
+# Creates the GitHub Release (and its tag) for the version in pyproject.toml, then runs the PyPI publish
+# workflow on that tag. Run it by hand, or from a session through the API, once the version bump is merged:
+#   inputs: notes (the release description, Markdown), ref (commit to release; default: main's head).
+# A release made with GITHUB_TOKEN does not fire `release: published`, so this dispatches publish.yml
+# itself; publish.yml skips files already on PyPI, so re-running is harmless.
+
+on:
+  workflow_dispatch:
+    inputs:
+      notes:
+        description: Release description (Markdown)
+        required: true
+      ref:
+        description: Commit or branch to release (default main)
+        required: false
+        default: main
+
+permissions:
+  contents: write # create the tag and the release
+  actions: write # dispatch publish.yml
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.ref }}
+      - name: Create the release
+        id: release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NOTES: ${{ inputs.notes }}
+        run: |
+          v=$(python3 -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])")
+          tag="v$v"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            echo "$tag already has a release; updating its notes"
+            gh release edit "$tag" --notes "$NOTES"
+          else
+            gh release create "$tag" --target "$(git rev-parse HEAD)" --title "$tag" --notes "$NOTES"
+          fi
+      - name: Publish to PyPI from the tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.release.outputs.tag }}
+        run: gh workflow run publish.yml --ref "$TAG"
